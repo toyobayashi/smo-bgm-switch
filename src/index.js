@@ -97,22 +97,26 @@ class PlayerComponent extends Disposable {
     super()
     const domNode = $('div')
     append(container, domNode)
+    const timerange = $('div')
+    append(domNode, timerange)
+    const buttons = $('div')
+    append(domNode, buttons)
     this.domNode = domNode
 
     this.currentTime = $('span')
-    append(domNode, this.currentTime)
+    append(timerange, this.currentTime)
     this.currentTime.style.textAlign = 'center'
     this.currentTime.style.display = 'inline-block'
     this.currentTime.style.width = '60px'
     this.currentTime.innerText = '00:00'
 
     this.input = $('input', { type: 'range', min: '0', max: '100', value: '0' })
-    append(domNode, this.input)
+    append(timerange, this.input)
     this.input.style.width = '200px'
-    this._register(addDisposableListener(this.input, 'mousedown', (e) => {
+    this._register(addDisposableListener(this.input, 'ontouchstart' in window ? 'touchstart' : 'mousedown', (e) => {
       this.rangeDragging = true
     }))
-    this._register(addDisposableListener(this.input, 'mouseup', (e) => {
+    this._register(addDisposableListener(this.input, 'ontouchend' in window ? 'touchend' : 'mouseup', (e) => {
       this.rangeDragging = false
       this.initPlayer()
       this.player.currentTime = this.player.duration * Number(this.input.value) / 100
@@ -122,14 +126,14 @@ class PlayerComponent extends Disposable {
     }))
 
     this.duration = $('span')
-    append(domNode, this.duration)
+    append(timerange, this.duration)
     this.duration.style.textAlign = 'center'
     this.duration.style.display = 'inline-block'
     this.duration.style.width = '60px'
     this.duration.innerText = '00:00'
 
     const button = this.playButton = $('button')
-    append(domNode, button)
+    append(buttons, button)
     button.style.width = '60px'
     button.innerText = 'play'
 
@@ -154,7 +158,7 @@ class PlayerComponent extends Disposable {
     }))
 
     const switchButton = $('button')
-    append(domNode, switchButton)
+    append(buttons, switchButton)
     switchButton.style.width = '60px'
     switchButton.innerText = 'switch'
     this._register(addDisposableListener(switchButton, 'click', (e) => {
