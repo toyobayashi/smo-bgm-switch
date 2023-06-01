@@ -12,8 +12,8 @@ class MusicGroup {
     const dir = './assets'
     this.name = name
     this._8bitName = name + ' 8bit版'
-    this.src = encodeURI(dir + '/' + this.name + '.mp3')
-    this._8bitSrc = encodeURI(dir + '/' + this._8bitName + '.mp3')
+    this.src = dir + '/' + this.name + '.mp3'
+    this._8bitSrc = dir + '/' + this._8bitName + '.mp3'
   }
 }
 
@@ -30,23 +30,23 @@ class PlayerModel {
   }
 
   playList = [
-    new MusicGroup('ダイナフォー'),
+    new MusicGroup('ダイナフォー'),
     new MusicGroup('アッチーニャ遺跡'),
     new MusicGroup('アッチーニャ 夜'),
-    new MusicGroup('スチームガーデン'),
-    new MusicGroup('ドレッシーバレー'),
+    new MusicGroup('スチームガーデン'),
+    new MusicGroup('ドレッシーバレー'),
     new MusicGroup('ロス島'),
-    new MusicGroup('Jump Up，Super Star！NDCフェスティバルエディション'),
+    new MusicGroup('Jump Up，Super Star！NDCフェスティバルエディション'),
     new MusicGroup('地下の発電所'),
     new MusicGroup('シュワシュワーナ'),
-    new MusicGroup('ホーダン伯爵戦'),
-    new MusicGroup('ボルボーノ'),
-    new MusicGroup('クッパ城'),
+    new MusicGroup('ホーダン伯爵戦'),
+    new MusicGroup('ボルボーノ'),
+    new MusicGroup('クッパ城'),
     new MusicGroup('ハニークレーター'),
     new MusicGroup('ハニークレーター 崩落'),
     new MusicGroup('Break Free（Lead the Way）'),
-    new MusicGroup('さかさピラミッド内部'),
-    new MusicGroup('アスレチックステージ2')
+    new MusicGroup('さかさピラミッド内部'),
+    new MusicGroup('アスレチックステージ2')
   ]
 }
 
