@@ -2,8 +2,6 @@ import { Emitter } from './base.js'
 
 class Track {
   #gainNode
-  source = null
-  audioBuffer = null
 
   /**
    * @param {AudioContext} ac 
@@ -14,14 +12,9 @@ class Track {
       this.#gainNode.gain.value = 0
     }
     this.#gainNode.connect(ac.destination)
-  }
-
-  connect () {
+    this.audio = new Audio()
+    this.source = ac.createMediaElementSource(this.audio)
     this.source.connect(this.#gainNode)
-  }
-
-  disconnect () {
-    this.source.disconnect()
   }
 
   setActive (value) {
@@ -85,80 +78,22 @@ export class Player {
   #ctx = new AudioContext()
   #gainNode = this.#ctx.createGain()
 
-  #startedAt = 0 // absolute time
-  #pausedAt = 0 // relative time
   #duration = 0
 
   tracks = [new Track(this.#ctx, true), new Track(this.#ctx, false)]
   activeTrack = 0
+  baseTrack = this.tracks[0]
 
   loop = false
-  #loopStart = 0
-  #loopEnd = 0
-  #timeupdateTimer = 0
-
-  get loopStart () {
-    return this.#loopStart
-  }
-
-  set loopStart (value) {
-    this.#loopStart = value
-    this.tracks.forEach((t) => { if (t.source) t.source.loopStart = value })
-  }
-
-  get loopEnd () {
-    return this.#loopEnd
-  }
-
-  set loopEnd (value) {
-    this.#loopEnd = value
-    this.tracks.forEach((t) => { if (t.source) t.source.loopEnd = value })
-  }
 
   get currentTime () {
-    let t = 0
-    if (this.#pausedAt) {
-      t = this.#pausedAt
-      return t
-    } else if (this.#startedAt) {
-      t = this.#ctx.currentTime - this.#startedAt
-      if (this.loop) {
-        if (this.loopEnd > 0) {
-          while (t > this.loopEnd) {
-            this.#startedAt = this.#ctx.currentTime - (this.loopStart + (t - this.loopEnd))
-            t = this.#ctx.currentTime - this.#startedAt
-          }
-        }
-        while (t > this.duration) {
-          this.#startedAt += this.duration
-          t = this.#ctx.currentTime - this.#startedAt
-        }
-      } else {
-        if (t > this.duration) t = this.duration
-      }
-      return t
-    } else {
-      return 0
-    }
+    return this.baseTrack.audio.currentTime
   }
 
   set currentTime (value) {
-    if (this.#pausedAt) {
-      this.#pausedAt = value
-      return
-    }
-    if (this.#startedAt) {
-      this.tracks.forEach((t) => {
-        if (!t.audioBuffer) return
-        this._initSource(t, true)
-        t.source.start(0, value)
-      })
-      this.setBaseTrack()
-      this.#startedAt = this.#ctx.currentTime - value
-      this.#pausedAt = 0
-
-      this.emit('timeupdate')
-    }
+    this.tracks.forEach((t) => {
+      t.audio.currentTime = value
+    })
   }
 
   get duration () {
@@ -179,52 +114,41 @@ export class Player {
     this.#gainNode.connect(this.#ctx.destination)
   }
 
-  _resetSource (t) {
-    if (t.source) {
-      t.source.onended = null
-      t.source.stop()
-      t.disconnect()
-      t.source = null
-    }
-  }
-
-  _initSource (t) {
-    try {
-      this._resetSource(t)
-    } catch (_) {}
-    t.source = this.#ctx.createBufferSource()
-    t.source.buffer = t.audioBuffer
-    t.source.loop = this.loop
-    t.source.loopStart = this.loopStart || 0
-    t.source.loopEnd = this.loopEnd || t.audioBuffer.duration
-    t.connect()
-  }
-
   setBaseTrack () {
     let duration = Infinity, index = -1, t = null
-    for (let i = 0; i < this.tracks.length; ++i) {
+    for (let i = this.tracks.length - 1; i >= 0; --i) {
       const track = this.tracks[i]
-      if (!track.audioBuffer) continue
-      const d = track.audioBuffer.duration
-      if (d < duration) {
+      track.audio.onended = null
+      track.audio.ondurationchange = null
+      track.audio.ontimeupdate = null
+      track.audio.onplay = null
+      track.audio.onpause = null
+      track.audio.onerror = null
+      const d = track.audio.duration
+      if (!(d >= duration)) {
         duration = d
         index = i
         t = track
       }
     }
-    if (t) {
-      t.source.onended = () => {
-        window.clearInterval(this.#timeupdateTimer)
-        this.#timeupdateTimer = 0
-        this.emit('ended')
-      }
-      for (let i = 0; i < this.tracks.length; ++i) {
-        const track = this.tracks[i]
-        track.source.loopStart = t.source.loopStart
-        track.source.loopEnd = t.source.loopEnd
-      }
+    t.audio.onended = () => {
+      this.emit('ended')
+      this.tracks.forEach(track => { track.audio.pause() })
     }
-    return duration
+    t.audio.ontimeupdate = () => {
+      this.emit('timeupdate')
+    }
+    t.audio.oncanplay = () => {
+      this.emit('canplay')
+    }
+    t.audio.onplay = () => {
+      this.emit('play')
+    }
+    t.audio.onpause = () => {
+      this.emit('pause')
+    }
+    this.#duration = duration
+    this.baseTrack = t
   }
 
   async playAudioBuffer (audioBuffer) {
@@ -254,70 +178,42 @@ export class Player {
   }
 
   async setRawSrc (srcs) {
-    window.clearInterval(this.#timeupdateTimer)
-    this.#timeupdateTimer = 0
     this.#duration = 0
-    this.#startedAt = 0
-    this.#pausedAt = 0
-    await Promise.all(srcs.map(async (src, i) => {
-      const t = this.tracks[i]
-      this._resetSource(t)
-      if (src) {
-        if (typeof src === 'string') {
-          src = await fetch(src).then(res => res.arrayBuffer())
+    await Promise.all(srcs.map((src, i) => {
+      return new Promise((resolve, reject) => {
+        const t = this.tracks[i]
+        t.audio.ondurationchange = () => {
+          resolve()
         }
-        t.audioBuffer = await this.decodeAudioBuffer(src)
-        this._initSource(t)
-      } else {
-        t.audioBuffer = null
-      }
-      return t
+        t.audio.onerror = () => {
+          reject(new Error('failed to load audio'))
+        }
+        t.audio.src = src
+      })
     }))
-    const duration = this.setBaseTrack()
-    this.#duration = duration
+    this.setBaseTrack()
     this.emit('durationchange')
-    this.emit('canplay')
   }
 
   async playRaw (tracks) {
     await this.setRawSrc(tracks)
-    await this.play()
+    this.play()
   }
 
-  async play () {
-    const offset = this.#pausedAt
+  play () {
     this.tracks.forEach((t) => {
-      if (!t.audioBuffer) {
-        throw new Error('no source')
-      }
-  
-      this._initSource(t, true)
-      t.source.start(0, offset)
+      t.audio.play()
     })
-    this.setBaseTrack()
-    this.#startedAt = this.#ctx.currentTime - offset
-    this.#pausedAt = 0
-
-    this.emit('play')
-
-    window.clearInterval(this.#timeupdateTimer)
-    this.emit('timeupdate')
-    this.#timeupdateTimer = window.setInterval(() => {
-      this.emit('timeupdate')
-    }, 250)
   }
 
   pause () {
-    this.tracks.forEach(this._resetSource)
-    this.#pausedAt = this.#ctx.currentTime - this.#startedAt
-    this.#startedAt = 0
-    this.emit('pause')
-    window.clearInterval(this.#timeupdateTimer)
-    this.#timeupdateTimer = 0
+    this.tracks.forEach((t) => {
+      t.audio.pause()
+    })
   }
 
   get paused () {
-    return this.#startedAt === 0 && this.#pausedAt > 0
+    return this.baseTrack.audio.paused
   }
 
   async decodeAudioBuffer (src) {

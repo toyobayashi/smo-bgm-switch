@@ -181,7 +181,8 @@ class PlayerComponent extends Disposable {
         if (!this.rangeDragging) {
           const currentTime = this.player.currentTime
           this.currentTime.innerText = formatTime(currentTime)
-          this.input.value = (currentTime / this.player.duration) * 100
+          const duration = this.player.duration
+          this.input.value = duration ? (currentTime / duration) * 100 : 0
         }
       }))
 
