@@ -12,8 +12,8 @@ class MusicGroup {
     const dir = './assets'
     this.name = name
     this._8bitName = name + ' 8bit版'
-    this.src = dir + '/' + this.name + '.mp3'
-    this._8bitSrc = dir + '/' + this._8bitName + '.mp3'
+    this.src = encodeURI(dir + '/' + this.name + '.mp3')
+    this._8bitSrc = encodeURI(dir + '/' + this._8bitName + '.mp3')
   }
 }
 
